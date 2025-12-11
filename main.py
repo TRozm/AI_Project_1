@@ -2,35 +2,70 @@ import telebot
 from telebot import types
 
 bot = telebot.TeleBot('8245986577:AAGcPG658n2542sdr8R-UAvO04586hqedyk')
-photo_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/LEGO_logo.svg/1024px-LEGO_logo.svg.png'
-@bot.message_handler(commands=['start'])
-def hello(message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=False)
-    keyboard.add(types.KeyboardButton('Відправити картинку'),types.KeyboardButton('Відправити файл'))
-    keyboard.add(types.KeyboardButton('Відповісти на питання'))
-    bot.send_message(message.chat.id, f'Привіт {message.from_user.first_name}!', reply_markup=keyboard)
-@bot.message_handler(content_types=['text'])
-def main_menu(message):
-    if message.text == 'Відправити картинку':
-        bot.send_photo(message.chat.id, photo=photo_url, caption='Це логотип!')
-    elif message.text == 'Відправити файл':
-        f = open('test.txt', 'rb')
-        bot.send_document(message.chat.id, document=f, caption='Важливий файл!')
-        f.close() # Не забудьте закрити файл після відправлення
-    elif message.text == 'Відповісти на питання':
-        inlineKeyboard = types.InlineKeyboardMarkup()
-        inlineKeyboard.add(types.InlineKeyboardButton('2', callback_data='2'))
-        inlineKeyboard.add(types.InlineKeyboardButton('4', callback_data='4'))
-        inlineKeyboard.add(types.InlineKeyboardButton('5', callback_data='5'))
-        bot.send_message(message.chat.id, '2+2=?', reply_markup=inlineKeyboard)
-# Додаємо обробник callback-ів для Inline-кнопок
+
+@bot.message_handler(commands=['inform'])
+def inform(message):
+    inline_btn = types.InlineKeyboardButton("Отримати фото", callback_data='send_local_photo')
+    inline_keyboard = types.InlineKeyboardMarkup().add(inline_btn)
+
+    bot.send_message(message.chat.id, "Натисніть кнопку, щоб отримати фото:", reply_markup=inline_keyboard)
+
+@bot.message_handler(commands=['keyboards'])
+def keyboards(message):
+    menu = types.InlineKeyboardMarkup()
+    menu.add(
+        types.InlineKeyboardButton("3 кнопки", callback_data="kb_3"),
+        types.InlineKeyboardButton("4 кнопки", callback_data="kb_4"),
+        types.InlineKeyboardButton("5 кнопок", callback_data="kb_5")
+    )
+    bot.send_message(message.chat.id, "Оберіть формат клавіатури:", reply_markup=menu)
+
+@bot.message_handler(commands=['help'])
+def help_cmd(message):
+    text = (
+        "*Доступні команди:*\n\n"
+        "/help — показати список команд\n"
+        "/inform — отримати інлайн-кнопку для надсилання JPG-фото\n"
+        "/keyboards — вибір клавіатур через інлайн-кнопки\n"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
-    if call.data == '2':
-        bot.answer_callback_query(call.id, "Неправильно!")
-    elif call.data == '4':
-        bot.answer_callback_query(call.id, "Правильно!")
-    elif call.data == '5':
-        bot.answer_callback_query(call.id, "Неправильно!")
+
+    if call.data == 'send_local_photo':
+        try:
+            with open("image.jpg", 'rb') as photo:
+                bot.send_photo(call.message.chat.id, photo)
+            bot.answer_callback_query(call.id, "Фото надіслано!")
+        except FileNotFoundError:
+            bot.answer_callback_query(call.id, "Файл image.jpg не знайдено!")
+        return
+
+    if call.data.startswith("kb_"):
+        kb_type = call.data
+
+        # 3 кнопки в 1 рядку
+        if kb_type == "kb_3":
+            kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            kb.row("К1", "К2", "К3")
+            bot.send_message(call.message.chat.id, "Клавіатура: 3 кнопки", reply_markup=kb)
+
+        # 4 кнопки (формат 1×3)
+        elif kb_type == "kb_4":
+            kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            kb.row("A")
+            kb.row("B", "C", "D")
+            bot.send_message(call.message.chat.id, "Клавіатура: 1×3", reply_markup=kb)
+
+        # 5 кнопок (формат 2×3)
+        elif kb_type == "kb_5":
+            kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            kb.row("X1", "X2")
+            kb.row("X3", "X4", "X5")
+            bot.send_message(call.message.chat.id, "Клавіатура: 2×3", reply_markup=kb)
+
+        bot.answer_callback_query(call.id)
+
 
 bot.polling(none_stop=True)
